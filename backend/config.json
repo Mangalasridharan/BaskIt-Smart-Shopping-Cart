@@ -1,3 +1,3 @@
- {
-    "connectionString": "mongodb+srv://testuser:testuser123@smartshoppingapp.vcd2t.mongodb.net/?retryWrites=true&w=majority&appName=smartshoppingapp"
- }
+{
+    "connectionString": "mongodb+srv://mangal:mangal%40123@baskit-smart-shopping-c.zmc3wky.mongodb.net/?appName=BaskIt-Smart-Shopping-Cart"
+}

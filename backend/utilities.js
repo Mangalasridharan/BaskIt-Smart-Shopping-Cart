@@ -6,7 +6,8 @@ function authenticateToken(req, res, next) {
 
     if (!token) return res.sendStatus(401);
 
-    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET,(err, user) => {
+    const secret = process.env.ACCESS_TOKEN_SECRET || "baskit_secret_jwt_key_2025";
+    jwt.verify(token, secret, (err, user) => {
         if (err) return res.sendStatus(401);
         req.user = user;
         next();

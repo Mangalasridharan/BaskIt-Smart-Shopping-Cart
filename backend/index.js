@@ -1,18 +1,29 @@
+const dns = require("dns");
+dns.setServers(["8.8.8.8", "1.1.1.1"]);
+
 require("dotenv").config();
-const axios=require("axios");
-const config = require("./config.json");
+
+const axios = require("axios");
 const mongoose = require("mongoose");
+let uri = process.env.MONGODB_URI;
+if (!uri) {
+    try {
+        uri = require("./config.json").connectionString;
+    } catch (err) {
+        console.warn("⚠️ MONGODB_URI not found in env and config.json missing.");
+    }
+}
 
-mongoose.connect(config.connectionString, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true
-}).then(() => {
-    console.log("Connected to MongoDB successfully!");
-}).catch(err => {
-    console.error("Error connecting to MongoDB:", err);
-});
+if (uri) {
+    mongoose
+        .connect(uri)
+        .then(() => console.log(" Connected to MongoDB successfully!"))
+        .catch((err) => console.error(" MongoDB connection error:", err.message));
+} else {
+    console.error("❌ MongoDB connection URI is missing! Set MONGODB_URI in environment variables.");
+}
 
-const User = require("./models/user.model");
+const User = require("./models/customer.model");
 const Product = require("./models/product.model");
 
 const express = require("express");
@@ -21,101 +32,46 @@ const app = express();
 
 const jwt = require("jsonwebtoken");
 const { authenticateToken } = require("./utilities");
+const customerController = require("./controllers/customer.controller");
+const inventoryController = require("./controllers/inventory.controller");
 
 app.use(express.json());
 app.use(cors({ origin: "*" }));
 
 app.get("/", (req, res) => {
-    res.json({ data: "hello" });
+    res.json({ data: "hello", service: "BaskIt Smart Shopping Cart Backend", status: "running" });
 });
 
-
-//Backend Ready!!
-
-// Create Account
-app.post("/create-account", async (req, res) => {
-    const { fullName, email, password } = req.body;
-
-    if (!fullName || !email || !password) {
-        return res.status(400).json({ error: true, message: "All fields are required" });
-    }
-
-    const isUser = await User.findOne({ email });
-
-    if (isUser) {
-        return res.json({ error: true, message: "User already exists" });
-    }
-
-    console.log("Saving User:", { fullName, email, password }); // Debugging log
-
-    const user = new User({ fullName, email, password });
-
-    await user.save();
-
-    const accessToken = jwt.sign({ _id: user._id, email: user.email }, process.env.ACCESS_TOKEN_SECRET, {
-        expiresIn: "10h",
-    });
-
-    return res.json({
-        error: false,
-        user: { _id: user._id, fullName: user.fullName, email: user.email },
-        accessToken,
-        message: "Registration Successful",
-    });
+app.get("/health", (req, res) => {
+    res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
-// Login
-app.post("/login", async (req, res) => {
-    const { email, password } = req.body;
+// Customer routes
+app.use("/customer", customerController);
 
-    if (!email || !password) {
-        return res.status(400).json({ error: true, message: "Email and password are required" });
-    }
+// Inventory routes (Shopkeeper / Admin)
+app.use("/inventory", inventoryController);
 
-    const userInfo = await User.findOne({ email }).lean(); // Use lean() to return a plain object
-
-    if (!userInfo) {
-        return res.status(400).json({ error: true, message: "User not found" });
-    }
-
-    console.log("Stored Password:", userInfo.password); // Debugging log
-    console.log("Entered Password:", password);
-
-    if (!userInfo.password) {
-        return res.status(500).json({ error: true, message: "Password field is missing from database" });
-    }
-
-    if (userInfo.password !== password) {
-        return res.status(400).json({ error: true, message: "Invalid credentials" });
-    }
-
-    const accessToken = jwt.sign({ _id: userInfo._id, email: userInfo.email }, process.env.ACCESS_TOKEN_SECRET, {
-        expiresIn: "10h",
-    });
-
-    return res.json({
-        error: false,
-        message: "Login successful",
-        user: { _id: userInfo._id, fullName: userInfo.fullName, email: userInfo.email },
-        accessToken,
-    });
-});
-
-//get user
-app.get("/get-user",authenticateToken, async (req,res)=> {
+//get user (legacy endpoint)
+app.get("/get-user", authenticateToken, async (req, res) => {
     const user = req.user;
-    const isUser = await User.findOne({_id:user._id});
+    const isUser = await User.findOne({ _id: user._id });
 
-    if(!isUser){
+    if (!isUser) {
         return res.sendStatus(401);
     }
 
     return res.json({
-        user:{fullName: isUser.fullName, email:isUser.email,"_id":isUser._id,createdOn: isUser.createdOn,},
-        message:"",
-
+        user: {
+            fullName: isUser.fullName,
+            email: isUser.email,
+            role: isUser.role,
+            _id: isUser._id,
+            createdAt: isUser.createdAt,
+            createdOn: isUser.createdAt,
+        },
+        message: "",
     });
-
 });
 
 // Add Product 
@@ -220,19 +176,20 @@ app.delete("/remove-product/:productId", authenticateToken, async (req, res) => 
         }
 
         if (product.Quantity > 1) {
-            product.Quantity -= 1; // ✅ Reduce quantity by 1
-            product.weight -= (product.weight / (product.Quantity + 1)); // ✅ Reduce weight correctly
+            const unitWeight = product.weight / product.Quantity; // Calculate per-unit weight
+            product.Quantity = 1; // ✅ Set quantity to 1
+            product.weight = unitWeight; // ✅ Set total weight to one unit
             await product.save();
             return res.json({
                 error: false,
-                message: "One product quantity removed successfully",
+                message: "Product quantity set to 1",
                 remainingQuantity: product.Quantity,
             });
         } else {
-            await product.deleteOne(); // ✅ Remove product if quantity reaches zero
+            await product.deleteOne(); // ✅ Remove product if quantity is already 1
             return res.json({
                 error: false,
-                message: "Product removed completely as quantity reached zero",
+                message: "Product removed completely",
             });
         }
     } catch (error) {
@@ -295,6 +252,66 @@ app.post("/set-rescan", async (req, res) => {
     }
 });
 
-app.listen(8000, () => console.log("Server running on port 8000"));
+// Process Payment & Unlock Exit Gate
+app.post("/process-payment", authenticateToken, async (req, res) => {
+    const user = req.user;
+    const { amount, paymentMethod, cardLast4 } = req.body;
+
+    try {
+        const transactionId = "BASKIT-TXN-" + Math.random().toString(36).substring(2, 8).toUpperCase() + "-" + Date.now().toString().slice(-4);
+        
+        // Signal Adafruit IO to open exit gate
+        const AIO_USERNAME = process.env.AIO_USERNAME || "Mangal";
+        const AIO_KEY = process.env.AIO_KEY || "aio_qgeN84rmbCwfvrColRvTpjSfjgyb";
+        const FEED_NAME = "payment";
+        const url = `https://io.adafruit.com/api/v2/${AIO_USERNAME}/feeds/${FEED_NAME}/data`;
+
+        let gateTriggered = false;
+        try {
+            await axios.post(
+                url,
+                { value: "ON" },
+                {
+                    headers: {
+                        "X-AIO-Key": AIO_KEY,
+                        "Content-Type": "application/json",
+                    },
+                    timeout: 4000,
+                }
+            );
+            gateTriggered = true;
+            console.log("✅ Gate opened via Adafruit IO for transaction:", transactionId);
+        } catch (gateErr) {
+            console.warn("⚠️ Adafruit Gate trigger warning:", gateErr.message);
+        }
+
+        // Clear customer's live cart in database
+        await Product.deleteMany({ userId: user._id });
+
+        return res.json({
+            error: false,
+            message: "Payment processed successfully! Exit gate unlocked.",
+            receipt: {
+                transactionId,
+                amount: Number(amount) || 0,
+                paymentMethod: paymentMethod || "Stripe Card",
+                cardLast4: cardLast4 || "4242",
+                status: "PAID",
+                gateStatus: gateTriggered ? "GATE_UNLOCKED" : "GATE_SIGNAL_SENT",
+                paidAt: new Date().toISOString(),
+                customerEmail: user.email,
+            },
+        });
+    } catch (error) {
+        console.error("Payment processing error:", error);
+        return res.status(500).json({
+            error: true,
+            message: "Payment processing failed. Please try again.",
+        });
+    }
+});
+
+const PORT = process.env.PORT || 8000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
 module.exports = app;

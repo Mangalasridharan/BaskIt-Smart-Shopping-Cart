@@ -1,0 +1,122 @@
+{
+  "8901030643496": {
+    "product_name": "Maggi 2-Minute Noodles",
+    "manufacturer": "Nestle",
+    "price": 14.0,
+    "weight": 70.0
+  },
+  "8901058845614": {
+    "product_name": "Nescafe Classic Coffee",
+    "manufacturer": "Nestle",
+    "price": 90.0,
+    "weight": 25.0
+  },
+  "8901234567890": {
+    "product_name": "Parle G Biscuit",
+    "manufacturer": "Parle",
+    "price": 10.0,
+    "weight": 50.0
+  },
+  "8901491105017": {
+    "product_name": "Sunfeast Dark Fantasy Choco Fills",
+    "manufacturer": "ITC",
+    "price": 30.0,
+    "weight": 75.0
+  },
+  "8901030363782": {
+    "product_name": "KitKat Chocolate",
+    "manufacturer": "Nestle",
+    "price": 20.0,
+    "weight": 18.0
+  },
+  "8901571002401": {
+    "product_name": "Colgate Strong Teeth Toothpaste",
+    "manufacturer": "Colgate",
+    "price": 55.0,
+    "weight": 50.0
+  },
+  "8901023010079": {
+    "product_name": "Dettol Handwash",
+    "manufacturer": "Reckitt",
+    "price": 99.0,
+    "weight": 200.0
+  },
+  "8902827000113": {
+    "product_name": "Aashirvaad Atta 1kg",
+    "manufacturer": "ITC",
+    "price": 55.0,
+    "weight": 1000.0
+  },
+  "8901207000890": {
+    "product_name": "Tata Salt",
+    "manufacturer": "Tata",
+    "price": 20.0,
+    "weight": 1000.0
+  },
+  "8906007280330": {
+    "product_name": "Aavin Milk 500ml",
+    "manufacturer": "Aavin",
+    "price": 32.0,
+    "weight": 500.0
+  },
+  "8904091100540": {
+    "product_name": "Good Day Butter Cookies",
+    "manufacturer": "Britannia",
+    "price": 10.0,
+    "weight": 39.0
+  },
+  "8901233033560": {
+    "product_name": "Dairy Milk Chocolate",
+    "manufacturer": "Cadbury",
+    "price": 20.0,
+    "weight": 24.0
+  },
+  "8908001156085": {
+    "product_name": "Horlicks Classic Malt",
+    "manufacturer": "GSK",
+    "price": 130.0,
+    "weight": 200.0
+  },
+  "8906021120131": {
+    "product_name": "5 Star Chocolate",
+    "manufacturer": "Cadbury",
+    "price": 10.0,
+    "weight": 21.5
+  },
+  "8901030730042": {
+    "product_name": "Nestea Iced Tea",
+    "manufacturer": "Nestle",
+    "price": 15.0,
+    "weight": 25.0
+  },
+  "8901030730011": {
+    "product_name": "Munch Chocolate",
+    "manufacturer": "Nestle",
+    "price": 10.0,
+    "weight": 12.0
+  },
+  "8901030555733": {
+    "product_name": "Milkmaid Condensed Milk",
+    "manufacturer": "Nestle",
+    "price": 65.0,
+    "weight": 90.0
+  },
+  "8901719106480": {
+    "product_name": "Amul Butter 100g",
+    "manufacturer": "Amul",
+    "price": 52.0,
+    "weight": 100.0
+  },
+  "8902700000220": {
+    "product_name": "Lays Classic Salted",
+    "manufacturer": "PepsiCo",
+    "price": 20.0,
+    "weight": 52.0
+  },
+  "8906007280002": {
+    "product_name": "Aavin Curd 200g",
+    "manufacturer": "Aavin",
+    "price": 20.0,
+    "weight": 200.0
+  }
+}

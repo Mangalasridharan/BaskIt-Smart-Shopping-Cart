@@ -1,9 +1,11 @@
 import React, { useState } from 'react'
-import Navbar from "../../components/Navbar/Navbar";
 import { Link, useNavigate } from "react-router-dom";
 import PasswordInput from '../../components/Input/PasswordInput';
 import { validateEmail } from "../../utils/helper";
 import axiosInstance from '../../utils/axiosInstance';
+import { HiChevronLeft } from "react-icons/hi";
+import { FcGoogle } from "react-icons/fc";
+import { FaApple } from "react-icons/fa";
 
 const Login = () => {
 
@@ -11,7 +13,7 @@ const Login = () => {
     const [password,setPassword] = useState("");
     const [error, setError] = useState(null);
 
-    const Navigate = useNavigate()
+    const navigate = useNavigate();
 
     const handleLogin = async (e) => {
         e.preventDefault();
@@ -28,17 +30,15 @@ const Login = () => {
 
         setError("")
 
-        //Login api call
         try {
-            const response = await axiosInstance.post("/login",{
+            const response = await axiosInstance.post("/customer/login",{
                 email:email,
                 password:password, 
             });
-            //Handle successfull login response
 
             if(response.data && response.data.accessToken){
                 localStorage.setItem("token",response.data.accessToken)
-                Navigate('/dashboard');
+                navigate('/dashboard');
             }
         }
         catch (error) {
@@ -48,46 +48,124 @@ const Login = () => {
             }else{
                 setError("An unexpected error occurred. Please try again!");
             }
-    }
+        }
 
     };
 
     return (
-    <>
-    <Navbar />
-
-    <div className="flex items-center justify-center mt-28">
-        <div className="w-96 border rounded bg-white px-7 py-10">
-            <form onSubmit={handleLogin}>
-                <h4 className="text-2xl mb-7">Login</h4>
-                <input 
-                    type="text" 
-                    placeholder="Email" 
-                    className="input-box"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                />
-
-                <PasswordInput 
-                    value={password}
-                    onChange= {(e)=>setPassword(e.target.value)} 
-                />
-
-                {error && <p className="text-red-500 text-xs pb-1">{error}</p>}
-
-                <button type="submit" className="btn-primary">
-                    Login
+    <div className="min-h-screen w-full bg-gradient-to-br from-[#F4FAF5] via-[#E8F3E9] to-[#F4FAF5] flex items-center justify-center p-4 relative overflow-hidden font-sans">
+        {/* Soft decorative background glows */}
+        <div className="absolute top-[-10%] left-[-10%] w-[40rem] h-[40rem] bg-[#E2EFE5]/40 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[45rem] h-[45rem] bg-[#137A24]/5 rounded-full blur-3xl"></div>
+        
+        <div className="relative w-full max-w-md bg-white rounded-[32px] shadow-xl border border-slate-100 p-8 md:p-10 animate-fade-in-up">
+            <div className="flex items-center mb-6">
+                <button 
+                    type="button"
+                    onClick={() => navigate(-1)} 
+                    className="w-11 h-11 bg-[#F0F6F1] hover:bg-[#E2EBE3] text-slate-700 flex items-center justify-center rounded-full transition-all duration-200 active:scale-95 shadow-sm"
+                >
+                    <HiChevronLeft className="text-xl" />
                 </button>
-                <p className="text-sm text-center mt-4">
-                    Not registered yet?{" "}
-                    <Link to="/signup" className="font-medium text-primary underline">
-                    Create an Account
+            </div>
+
+            <div className="mb-8">
+                <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Sign In</h1>
+                <p className="text-slate-500 mt-3 text-sm leading-relaxed font-medium">
+                    Log in to oversee your purchases. If you're new,{" "}
+                    <Link to="/signup" className="text-[#137A24] font-semibold hover:underline">
+                        create an account
+                    </Link>
+                    . Need to{" "}
+                    <span className="text-[#137A24] font-semibold cursor-pointer hover:underline">
+                        reset your password
+                    </span>
+                    ?
+                </p>
+            </div>
+
+            <form onSubmit={handleLogin} className="space-y-5">
+                <div>
+                    <label className="text-slate-700 text-xs font-bold mb-2 block tracking-wide uppercase">Email Address</label>
+                    <input 
+                        type="text" 
+                        placeholder="Email Here" 
+                        className="w-full bg-[#F0F6F1] text-slate-800 placeholder-slate-400 font-medium text-sm px-5 py-4 rounded-2xl border-none outline-none focus:ring-2 focus:ring-[#137A24]/20 transition-all duration-200"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                    />
+                </div>
+
+                <div>
+                    <label className="text-slate-700 text-xs font-bold mb-2 block tracking-wide uppercase">Password</label>
+                    <PasswordInput 
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)} 
+                        placeholder="Enter Password"
+                    />
+                </div>
+
+                <div className="flex justify-between items-center px-1">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                        <input 
+                            type="checkbox" 
+                            className="w-4 h-4 rounded border-slate-300 text-[#137A24] focus:ring-[#137A24] accent-[#137A24]" 
+                        />
+                        <span className="text-xs text-slate-500 font-semibold">Remember me</span>
+                    </label>
+                    <button
+                        type="button"
+                        className="text-xs text-red-500 hover:text-red-600 font-bold transition-all"
+                    >
+                        Forgot password?
+                    </button>
+                </div>
+
+                {error && (
+                    <div className="bg-red-50 border border-red-100 rounded-2xl px-4 py-3">
+                        <p className="text-red-600 text-sm font-medium">{error}</p>
+                    </div>
+                )}
+
+                <button 
+                    type="submit" 
+                    className="w-full bg-[#137A24] hover:bg-[#0E621C] text-white font-bold py-4 rounded-2xl active:scale-[0.98] transition-all duration-200 shadow-lg shadow-green-900/10 text-sm mt-4 tracking-wide"
+                >
+                    Log In
+                </button>
+
+                <div className="flex items-center py-2">
+                    <div className="flex-1 h-[1px] bg-slate-100"></div>
+                    <span className="text-[10px] text-slate-400 font-bold px-4 tracking-widest">OR</span>
+                    <div className="flex-1 h-[1px] bg-slate-100"></div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                    <button 
+                        type="button" 
+                        className="flex items-center justify-center gap-2 bg-[#F0F6F1] hover:bg-[#E2EBE3] text-slate-800 font-bold py-3.5 px-4 rounded-2xl transition-all duration-200 text-xs border border-transparent active:scale-[0.97]"
+                    >
+                        <FcGoogle className="text-lg shrink-0" />
+                        Google
+                    </button>
+                    <button 
+                        type="button" 
+                        className="flex items-center justify-center gap-2 bg-[#F0F6F1] hover:bg-[#E2EBE3] text-slate-800 font-bold py-3.5 px-4 rounded-2xl transition-all duration-200 text-xs border border-transparent active:scale-[0.97]"
+                    >
+                        <FaApple className="text-lg shrink-0 text-slate-900" />
+                        Apple
+                    </button>
+                </div>
+
+                <p className="text-slate-500 text-xs text-center font-semibold pt-4">
+                    Haven't any account?{" "}
+                    <Link to="/signup" className="text-[#137A24] font-bold hover:underline transition-all ml-1">
+                        Sign Up
                     </Link>
                 </p>
             </form>
         </div>
     </div>
-    </>
     );     
 }
 

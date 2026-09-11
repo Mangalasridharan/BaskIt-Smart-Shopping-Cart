@@ -1,37 +1,38 @@
 import React, { useState } from 'react';
-import { FaRegEye,FaRegEyeSlash } from "react-icons/fa6";
+import { FaRegEye, FaRegEyeSlash } from "react-icons/fa6";
 
-const PasswordInput = ({value, onChange, placeholder }) => {
+const PasswordInput = ({ value, onChange, placeholder }) => {
     const [isShowPassword, setIsShowPassword] = useState(false);
 
     const toggleShowPassword = () => {
         setIsShowPassword(!isShowPassword);
     };
 
-
     return (
-        <div className="flex items-center bg-transparent border-[1.5px] px-5 rounded mb-3">
-            <input 
-                value={value}
-                onChange={onChange}
-                type={isShowPassword ? "text":"password"}
-                placeholder={placeholder || "Password"}
-                className='w-full text-sm bg-transparent py-3 mr-3 rounded outline-none'
-            />
+        <div className="relative w-full">
+            <div className="flex items-center bg-[#F0F6F1] rounded-2xl px-5 py-4 focus-within:ring-2 focus-within:ring-[#137A24]/20 transition-all duration-200">
+                <input 
+                    value={value}
+                    onChange={onChange}
+                    type={isShowPassword ? "text" : "password"}
+                    placeholder={placeholder || "Enter Password"}
+                    className='w-full bg-transparent text-slate-800 text-sm placeholder-slate-400 outline-none font-medium'
+                />
 
-            {isShowPassword ? (<FaRegEye
-                size={20}
-                className="text-primary cursor-pointer"
-                onClick={()=>toggleShowPassword()}
-            />
-            ) : (<FaRegEyeSlash
-                size={20}
-                className="text-slate-400 cursor-pointer"
-                onClick={()=>toggleShowPassword()}
-            />
-            )}
-        
-
+                {isShowPassword ? (
+                    <FaRegEye
+                        size={18}
+                        className="text-slate-500 cursor-pointer hover:text-slate-700 transition-all shrink-0 ml-2"
+                        onClick={toggleShowPassword}
+                    />
+                ) : (
+                    <FaRegEyeSlash
+                        size={18}
+                        className="text-slate-400 cursor-pointer hover:text-slate-600 transition-all shrink-0 ml-2"
+                        onClick={toggleShowPassword}
+                    />
+                )}
+            </div>
         </div>
     );
 };

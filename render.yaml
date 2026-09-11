@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: baskit-backend
+    env: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: node index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: ACCESS_TOKEN_SECRET
+        generateValue: true
+      - key: MONGODB_URI
+        sync: false

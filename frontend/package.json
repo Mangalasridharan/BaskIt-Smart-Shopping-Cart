@@ -1,6 +1,5 @@
 {
-  "name": "shopping-app",
-  "homepage": "https://Mangalasridharan.github.io/smart-shopping-cart/login",
+  "name": "baskit-frontend",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -9,7 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "predeploy":"npm run build",
+    "predeploy": "npm run build",
     "deploy": "gh-pages -d dist"
   },
   "dependencies": {
