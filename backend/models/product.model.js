@@ -2,24 +2,49 @@ const mongoose = require("mongoose");
 
 const Schema = mongoose.Schema;
 
-const productSchema = new Schema({
-    product_name: { type: String, required: true },
-    Manufacturer: { type: String, required: true },
-    Price: { type: Number, required: true }, // ✅ Ensure Price is a Number
-    Quantity: { type: Number, required: true }, // ✅ Ensure Quantity is a Number
-    weight: { type: Number, required: true },
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }
+/**
+ * Global product catalogue / lookup table.
+ *
+ * Products are shared reference data (barcode -> name, manufacturer, price, weight).
+ * Store-specific stock is stored in the Store inventory.
+ */
+const productSchema = new Schema(
+    {
+        productName: {
+            type: String,
+            required: true,
+            trim: true,
+            index: true,
+        },
 
-});
+        productBarcode: {
+            type: String,
+            required: true,
+            unique: true,
+            trim: true,
+            index: true,
+        },
 
-module.exports = mongoose.model("Product",productSchema);
+        manufacturer: {
+            type: String,
+            required: true,
+            trim: true,
+        },
 
-//Product_name, 
-//Manufacturer, 
-//Price, 
-//Quantity,
-//weight, 
-//onDelete,
-//onEdit,
-//isPinned,
-//onPinProduct
+        price: {
+            type: Number,
+            required: true,
+            min: 0,
+        },
+
+        // Unit weight in grams (used by the smart cart's load sensor).
+        weight: {
+            type: Number,
+            min: 0,
+            default: 0,
+        },
+    },
+    { timestamps: true }
+);
+
+module.exports = mongoose.model("Product", productSchema, "product_catalog");
