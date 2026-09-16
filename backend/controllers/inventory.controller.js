@@ -1,184 +1,158 @@
 const express = require("express");
 const router = express.Router();
-const path = require("path");
-const fs = require("fs");
-const Inventory = require("../models/inventory.model");
+const inventoryService = require("../service/inventory.service");
+const asyncHandler = require("../middleware/asyncHandler");
 
-// Helper: Seed initial products from products.json if empty
-const seedFromProductsJson = async () => {
-  try {
-    const count = await Inventory.countDocuments();
-    if (count > 0) return;
-
-    // Search in root or backend
-    const possiblePaths = [
-      path.join(__dirname, "../../products.json"),
-      path.join(__dirname, "../products.json"),
-      path.join(process.cwd(), "products.json"),
-    ];
-
-    let productsData = null;
-    for (const p of possiblePaths) {
-      if (fs.existsSync(p)) {
-        const raw = fs.readFileSync(p, "utf-8");
-        productsData = JSON.parse(raw);
-        break;
-      }
-    }
-
-    if (!productsData) return;
-
-    const seedItems = Object.entries(productsData).map(([barcode, item]) => ({
-      barcode,
-      product_name: item.product_name,
-      manufacturer: item.manufacturer,
-      price: Number(item.price),
-      stockQuantity: Math.floor(Math.random() * 40) + 15,
-      weight: Number(item.weight),
-      category: item.category || "Grocery",
-      updatedAt: new Date(),
-    }));
-
-    if (seedItems.length > 0) {
-      await Inventory.insertMany(seedItems);
-      console.log(`✅ Seeded ${seedItems.length} products into Inventory collection`);
-    }
-  } catch (err) {
-    console.error("Error auto-seeding inventory:", err.message);
-  }
-};
-
-// GET /inventory - List all products
-router.get("/", async (req, res) => {
-  try {
-    let items = await Inventory.find().sort({ product_name: 1 });
-    if (items.length === 0) {
-      await seedFromProductsJson();
-      items = await Inventory.find().sort({ product_name: 1 });
-    }
-
+// GET /inventory - List this shopkeeper's stock
+router.get(
+  "/",
+  asyncHandler(async (req, res) => {
+    const data = await inventoryService.getInventory(req.user._id);
     return res.json({
       error: false,
-      items,
-      count: items.length,
+      ...data,
     });
-  } catch (err) {
-    console.error("Error fetching inventory:", err);
-    return res.status(500).json({ error: true, message: "Failed to fetch inventory" });
-  }
-});
+  })
+);
 
-// GET /inventory/stats - Dashboard analytics for shopkeeper
-router.get("/stats", async (req, res) => {
-  try {
-    const items = await Inventory.find();
-    const totalProducts = items.length;
-    const totalStock = items.reduce((sum, item) => sum + (item.stockQuantity || 0), 0);
-    const totalValue = items.reduce((sum, item) => sum + (item.price * (item.stockQuantity || 0)), 0);
-    const lowStockCount = items.filter((item) => (item.stockQuantity || 0) < 10).length;
-
+// GET /inventory/stats - Dashboard analytics for this shopkeeper
+router.get(
+  "/stats",
+  asyncHandler(async (req, res) => {
+    const stats = await inventoryService.getStats(req.user._id);
     return res.json({
       error: false,
-      stats: {
-        totalProducts,
-        totalStock,
-        totalValue: Math.round(totalValue),
-        lowStockCount,
-      },
+      stats,
     });
-  } catch (err) {
-    console.error("Error fetching inventory stats:", err);
-    return res.status(500).json({ error: true, message: "Failed to fetch inventory stats" });
-  }
-});
+  })
+);
 
-// POST /inventory - Add new product
-router.post("/", async (req, res) => {
-  try {
-    const { barcode, product_name, manufacturer, price, stockQuantity, weight, category } = req.body;
-
-    if (!barcode || !product_name || !manufacturer || price === undefined || weight === undefined) {
-      return res.status(400).json({ error: true, message: "Required fields missing" });
-    }
-
-    const existing = await Inventory.findOne({ barcode: barcode.trim() });
-    if (existing) {
-      return res.status(400).json({ error: true, message: "Product with this barcode already exists" });
-    }
-
-    const item = new Inventory({
-      barcode: barcode.trim(),
-      product_name: product_name.trim(),
-      manufacturer: manufacturer.trim(),
-      price: Number(price),
-      stockQuantity: stockQuantity !== undefined ? Number(stockQuantity) : 50,
-      weight: Number(weight),
-      category: category || "Packaged Goods",
-      updatedAt: new Date(),
+// GET /inventory/transactions - Retrieve transaction purchase history for this store
+router.get(
+  "/transactions",
+  asyncHandler(async (req, res) => {
+    const data = await inventoryService.getTransactions(req.user._id);
+    return res.json({
+      error: false,
+      ...data,
     });
+  })
+);
 
-    await item.save();
+// POST /inventory - Add a product to this shopkeeper's inventory
+router.post(
+  "/",
+  asyncHandler(async (req, res) => {
+    const item = await inventoryService.addProductToInventory(req.user._id, req.body);
     return res.status(201).json({
       error: false,
       message: "Product added to inventory successfully",
       item,
     });
-  } catch (err) {
-    console.error("Error adding inventory product:", err);
-    return res.status(500).json({ error: true, message: "Failed to create product" });
-  }
-});
+  })
+);
 
-// PUT /inventory/:id - Update product
-router.put("/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const updateData = { ...req.body, updatedAt: new Date() };
-
-    const updated = await Inventory.findByIdAndUpdate(id, updateData, { new: true });
-    if (!updated) {
-      return res.status(404).json({ error: true, message: "Product not found" });
-    }
-
+// PUT /inventory/:productId - Update catalogue details and/or this store's stock
+router.put(
+  "/:productId",
+  asyncHandler(async (req, res) => {
+    const item = await inventoryService.updateInventoryProduct(
+      req.user._id,
+      req.params.productId,
+      req.body
+    );
     return res.json({
       error: false,
-      message: "Product updated successfully",
-      item: updated,
+      message: "Inventory item updated successfully",
+      item,
     });
-  } catch (err) {
-    console.error("Error updating inventory:", err);
-    return res.status(500).json({ error: true, message: "Failed to update product" });
-  }
-});
+  })
+);
 
-// DELETE /inventory/:id - Remove product
-router.delete("/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const deleted = await Inventory.findByIdAndDelete(id);
-    if (!deleted) {
-      return res.status(404).json({ error: true, message: "Product not found" });
-    }
-
+// DELETE /inventory/:productId - Remove this product from this shopkeeper's store
+router.delete(
+  "/:productId",
+  asyncHandler(async (req, res) => {
+    const result = await inventoryService.removeProductFromInventory(
+      req.user._id,
+      req.params.productId
+    );
     return res.json({
       error: false,
-      message: "Product deleted from inventory",
+      message: result.message,
     });
-  } catch (err) {
-    console.error("Error deleting product:", err);
-    return res.status(500).json({ error: true, message: "Failed to delete product" });
-  }
-});
+  })
+);
 
-// POST /inventory/seed - Re-seed from file
-router.post("/seed", async (req, res) => {
-  try {
-    await seedFromProductsJson();
-    const count = await Inventory.countDocuments();
-    return res.json({ error: false, message: `Inventory seeded. Total items: ${count}` });
-  } catch (err) {
-    return res.status(500).json({ error: true, message: err.message });
-  }
-});
+// POST /inventory/seed - Add missing sample products to this shopkeeper's store
+router.post(
+  "/seed",
+  asyncHandler(async (req, res) => {
+    const result = await inventoryService.seedFromProductsJson(req.user._id);
+    return res.json({
+      error: false,
+      message: `Inventory synced. Added ${result.inserted} new item(s).`,
+      ...result,
+    });
+  })
+);
+
+// POST /inventory/cart - Add a new cart to this store
+router.post(
+  "/cart",
+  asyncHandler(async (req, res) => {
+    const carts = await inventoryService.addCartToStore(req.user._id, req.body?.cartCode);
+    return res.status(201).json({
+      error: false,
+      message: `Cart ${String(req.body?.cartCode).trim().toUpperCase()} registered successfully`,
+      carts,
+    });
+  })
+);
+
+// POST /inventory/cart/:cartCode/reset - Reset a cart's status back to Free
+router.post(
+  "/cart/:cartCode/reset",
+  asyncHandler(async (req, res) => {
+    const code = String(req.params.cartCode).trim().toUpperCase();
+    const carts = await inventoryService.resetCartStatus(req.user._id, code);
+    return res.json({
+      error: false,
+      message: `Cart ${code} status reset to Free`,
+      carts,
+    });
+  })
+);
+
+// POST /inventory/gate/pulse - Test trigger the exit barrier
+router.post(
+  "/gate/pulse",
+  asyncHandler(async (req, res) => {
+    const gateNumber = req.body?.gateNumber || req.body?.gate || 1;
+    const result = await inventoryService.pulseGate(gateNumber);
+    return res.json({
+      error: false,
+      message: result.opened
+        ? `Exit Gate #${gateNumber} barrier opened & cycled successfully!`
+        : `Gate #${gateNumber} signal sent (Adafruit simulated). Barrier cycled.`,
+      gate: result,
+    });
+  })
+);
+
+// POST /inventory/gate/sync - Re-sync/provision all gate buttons on Adafruit IO
+router.post(
+  "/gate/sync",
+  asyncHandler(async (req, res) => {
+    const result = await inventoryService.syncGates(req.user._id);
+    return res.json({
+      error: !result.success,
+      message: result.success
+        ? `Successfully synced ${result.numberOfGates} gate button(s) in "${result.storeName}" dashboard on Adafruit IO in closed (OFF) state.`
+        : "Failed to sync gates with Adafruit IO. Check your AIO credentials.",
+      details: result.details,
+    });
+  })
+);
 
 module.exports = router;
