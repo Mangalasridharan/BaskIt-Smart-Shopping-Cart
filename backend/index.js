@@ -1,9 +1,10 @@
 const dns = require("dns");
 dns.setServers(["8.8.8.8", "1.1.1.1"]);
 
+const path = require("path");
+require("dotenv").config({ path: path.join(__dirname, ".env") });
 require("dotenv").config();
 
-const axios = require("axios");
 const mongoose = require("mongoose");
 let uri = process.env.MONGODB_URI;
 if (!uri) {
@@ -23,17 +24,28 @@ if (uri) {
     console.error("❌ MongoDB connection URI is missing! Set MONGODB_URI in environment variables.");
 }
 
-const User = require("./models/customer.model");
-const Product = require("./models/product.model");
-
 const express = require("express");
+const http = require("http");
 const cors = require("cors");
 const app = express();
+const { initSocket } = require("./socket");
 
-const jwt = require("jsonwebtoken");
-const { authenticateToken } = require("./utilities");
-const customerController = require("./controllers/customer.controller");
+const { authenticateToken, authorizeRoles, normalizeRole, ROLES } = require("./utilities");
+const userRepo = require("./repository/user.repo");
+const userController = require("./controllers/user.controller");
 const inventoryController = require("./controllers/inventory.controller");
+const productController = require("./controllers/product.controller");
+const cartController = require("./controllers/cart.controller");
+const storeController = require("./controllers/store.controller");
+const paymentController = require("./controllers/payment.controller");
+const gateController = require("./controllers/gate.controller");
+const shoppingListController = require("./controllers/shoppingList.controller");
+const { errorHandler, notFoundHandler } = require("./middleware/errorHandler");
+const asyncHandler = require("./middleware/asyncHandler");
+
+// Behind Render's proxy the forwarded protocol/host describe the public URL,
+// which is what the gate QR code must point at.
+app.set("trust proxy", 1);
 
 app.use(express.json());
 app.use(cors({ origin: "*" }));
@@ -47,271 +59,83 @@ app.get("/health", (req, res) => {
 });
 
 // Customer routes
-app.use("/customer", customerController);
+app.use("/customer", userController);
 
-// Inventory routes (Shopkeeper / Admin)
-app.use("/inventory", inventoryController);
+// Shared product catalogue lookup (available to signed-in users)
+app.use("/products", authenticateToken, productController);
 
-//get user (legacy endpoint)
-app.get("/get-user", authenticateToken, async (req, res) => {
-    const user = req.user;
-    const isUser = await User.findOne({ _id: user._id });
+// Supermarket lookup and QR scan (available to signed-in users)
+app.use("/store", authenticateToken, storeController);
 
-    if (!isUser) {
-        return res.sendStatus(401);
-    }
+// Shopping cart sessions (Customer only)
+app.use("/cart", authenticateToken, authorizeRoles(ROLES.CUSTOMER), cartController);
 
-    return res.json({
-        user: {
-            fullName: isUser.fullName,
-            email: isUser.email,
-            role: isUser.role,
-            _id: isUser._id,
-            createdAt: isUser.createdAt,
-            createdOn: isUser.createdAt,
-        },
-        message: "",
-    });
-});
+// Stripe-hosted checkout (Customer only)
+app.use("/payment", authenticateToken, authorizeRoles(ROLES.CUSTOMER), paymentController);
 
-// Add Product 
-// Add Product 
-app.post("/add-product", authenticateToken, async (req, res) => {
-    const { product_name, Manufacturer, Price, Quantity, weight } = req.body;
-    const user = req.user;
+// Exit gate passes. Public: the QR code is opened by the exit scanner, which
+// has no shopper session. Codes are random, single-use tokens.
+app.use("/gate", gateController);
 
-    console.log("Received Data:", { product_name, Manufacturer, Price, Quantity, weight }); // Debugging
+// Inventory routes (Shopkeeper only)
+app.use("/inventory", authenticateToken, authorizeRoles(ROLES.SHOPKEEPER), inventoryController);
 
-    if (!product_name || !Manufacturer || !Price || !Quantity || !weight) {
-        return res.status(400).json({ error: true, message: "All fields are required" });
-    }
+// Shopping list & Google Notes integration (signed-in customers)
+app.use("/shopping-list", authenticateToken, shoppingListController);
 
-    try {
-        const numericPrice = Number(Price);
-        const numericQuantity = Number(Quantity);
-        const numericWeight = Number(weight);
+// Legacy endpoint: get-user
+app.get(
+    "/get-user",
+    authenticateToken,
+    asyncHandler(async (req, res) => {
+        const user = req.user;
+        const isUser = await userRepo.findUserById(user._id);
 
-        if (isNaN(numericPrice) || isNaN(numericQuantity) || isNaN(numericWeight)) {
-            return res.status(400).json({ error: true, message: "Invalid Price, Quantity, or Weight" });
+        if (!isUser) {
+            return res.sendStatus(401);
         }
-
-        const existingProduct = await Product.findOne({
-            product_name: product_name.trim(),
-            userId: user._id,
-        });
-
-        if (existingProduct) {
-            existingProduct.Quantity += numericQuantity;
-            existingProduct.weight += numericWeight;
-            await existingProduct.save();
-            console.log("Updated Product:", existingProduct); // Debugging
-            return res.json({
-                error: false,
-                product: existingProduct,
-                message: "Product quantity updated successfully",
-            });
-        }
-
-        const product = new Product({
-            product_name: product_name.trim(),
-            Manufacturer,
-            Price: numericPrice,
-            Quantity: numericQuantity,
-            weight: numericWeight,
-            userId: user._id,
-        });
-
-        await product.save();
-        console.log("New Product Saved:", product); // Debugging
 
         return res.json({
-            error: false,
-            product,
-            message: "Product added successfully",
-        });
-    } catch (error) {
-        console.error("Error:", error);
-        return res.status(500).json({
-            error: true,
-            message: "Internal Server Error",
-        });
-    }
-});
-
-
-//get all products
-app.get("/get-all-products/",authenticateToken, async (req,res) => {
-    const  user  = req.user;
-
-    try {
-        const products = await Product.find({ userId:user._id}).sort({ isPinned: -1 });
-    
-
-    return res.json({
-        error:false,
-        products,
-        message:"All Products retreived successfully",
-    });
-    }
-    catch (error)
-    {
-        return res.status(500).json({
-            error:true,
-            message:"Internal Server Error",
-        });
-    }
-
-});
-
-//remove product
-app.delete("/remove-product/:productId", authenticateToken, async (req, res) => {
-    const productId = req.params.productId;
-    const user = req.user; // Get authenticated user
-
-    try {
-        const product = await Product.findOne({ _id: productId, userId: user._id });
-
-        if (!product) {
-            return res.status(404).json({ error: true, message: "Product not found" });
-        }
-
-        if (product.Quantity > 1) {
-            const unitWeight = product.weight / product.Quantity; // Calculate per-unit weight
-            product.Quantity = 1; // ✅ Set quantity to 1
-            product.weight = unitWeight; // ✅ Set total weight to one unit
-            await product.save();
-            return res.json({
-                error: false,
-                message: "Product quantity set to 1",
-                remainingQuantity: product.Quantity,
-            });
-        } else {
-            await product.deleteOne(); // ✅ Remove product if quantity is already 1
-            return res.json({
-                error: false,
-                message: "Product removed completely",
-            });
-        }
-    } catch (error) {
-        console.error("Error removing product:", error);
-        return res.status(500).json({
-            error: true,
-            message: "Internal Server Error",
-        });
-    }
-});
-
-// Add this route at the end of your index.js (before app.listen)
-app.post("/update-adafruit", authenticateToken, async (req, res) => {
-    const AIO_USERNAME = "Mangal"; // Replace with your Adafruit username
-    const AIO_KEY = ""; // Replace with your actual AIO Key
-    const FEED_NAME = "payment"; // Replace with your feed name
-
-    const url = `https://io.adafruit.com/api/v2/${AIO_USERNAME}/feeds/${FEED_NAME}/data`;
-
-    try {
-        const response = await axios.post(
-            url,
-            { value: "ON" }, // Send '1' to turn ON the switch
-            {
-                headers: {
-                    "X-AIO-Key": AIO_KEY,
-                    "Content-Type": "application/json",
-                },
-            }
-        );
-
-        console.log("✅ Adafruit IO updated successfully:", response.data);
-        return res.json({ error: false, message: "Adafruit IO updated successfully" });
-    } catch (error) {
-        console.error("❌ Error updating Adafruit IO:", error.response?.data || error.message);
-        return res.status(error.response?.status || 500).json({
-            error: true,
-            message: "Failed to update Adafruit IO",
-            details: error.response?.data || error.message,
-        });
-    }
-});
-
-app.post("/set-rescan", async (req, res) => {
-    const AIO_USERNAME = "Mangal";
-    const AIO_KEY = "aio_qgeN84rmbCwfvrColRvTpjSfjgyb";
-    const RESCAN_FEED = `https://io.adafruit.com/api/v2/${AIO_USERNAME}/feeds/rescan/data`;
-
-    try {
-        // Just trigger rescan mode without sending product ID
-        await axios.post(RESCAN_FEED,
-            { value: "ON" },
-            { headers: { "X-AIO-Key": AIO_KEY } }
-        );
-        
-        res.json({ success: true });
-    } catch (error) {
-        console.error("Adafruit IO Error:", error);
-        res.status(500).json({ success: false });
-    }
-});
-
-// Process Payment & Unlock Exit Gate
-app.post("/process-payment", authenticateToken, async (req, res) => {
-    const user = req.user;
-    const { amount, paymentMethod, cardLast4 } = req.body;
-
-    try {
-        const transactionId = "BASKIT-TXN-" + Math.random().toString(36).substring(2, 8).toUpperCase() + "-" + Date.now().toString().slice(-4);
-        
-        // Signal Adafruit IO to open exit gate
-        const AIO_USERNAME = process.env.AIO_USERNAME || "Mangal";
-        const AIO_KEY = process.env.AIO_KEY || "aio_qgeN84rmbCwfvrColRvTpjSfjgyb";
-        const FEED_NAME = "payment";
-        const url = `https://io.adafruit.com/api/v2/${AIO_USERNAME}/feeds/${FEED_NAME}/data`;
-
-        let gateTriggered = false;
-        try {
-            await axios.post(
-                url,
-                { value: "ON" },
-                {
-                    headers: {
-                        "X-AIO-Key": AIO_KEY,
-                        "Content-Type": "application/json",
-                    },
-                    timeout: 4000,
-                }
-            );
-            gateTriggered = true;
-            console.log("✅ Gate opened via Adafruit IO for transaction:", transactionId);
-        } catch (gateErr) {
-            console.warn("⚠️ Adafruit Gate trigger warning:", gateErr.message);
-        }
-
-        // Clear customer's live cart in database
-        await Product.deleteMany({ userId: user._id });
-
-        return res.json({
-            error: false,
-            message: "Payment processed successfully! Exit gate unlocked.",
-            receipt: {
-                transactionId,
-                amount: Number(amount) || 0,
-                paymentMethod: paymentMethod || "Stripe Card",
-                cardLast4: cardLast4 || "4242",
-                status: "PAID",
-                gateStatus: gateTriggered ? "GATE_UNLOCKED" : "GATE_SIGNAL_SENT",
-                paidAt: new Date().toISOString(),
-                customerEmail: user.email,
+            user: {
+                fullName: isUser.fullName,
+                email: isUser.email,
+                role: normalizeRole(isUser.role),
+                _id: isUser._id,
+                createdAt: isUser.createdAt,
+                createdOn: isUser.createdAt,
             },
+            message: "",
         });
-    } catch (error) {
-        console.error("Payment processing error:", error);
-        return res.status(500).json({
-            error: true,
-            message: "Payment processing failed. Please try again.",
-        });
-    }
+    })
+);
+
+// Cart product management (delegated to cart controller & service)
+app.post("/add-product", authenticateToken, cartController.addProduct);
+app.get("/get-all-products", authenticateToken, cartController.getAllProducts);
+app.delete("/remove-product/:productName", authenticateToken, cartController.removeProduct);
+
+// 404 Route Not Found Middleware (catches any unmatched paths)
+app.use(notFoundHandler);
+
+// Global Error Handler Middleware (standardized JSON error responses)
+app.use(errorHandler);
+
+// Global process-level safety catches
+process.on("unhandledRejection", (reason, promise) => {
+    console.error("🚨 Unhandled Rejection at:", promise, "reason:", reason);
+});
+
+process.on("uncaughtException", (error) => {
+    console.error("🚨 Uncaught Exception thrown:", error);
 });
 
 const PORT = process.env.PORT || 8000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+const server = http.createServer(app);
+initSocket(server);
+
+if (require.main === module) {
+    server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+}
 
 module.exports = app;
+module.exports.server = server;

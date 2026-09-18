@@ -5,7 +5,10 @@
   "scripts": {
     "test": "node test.js",
     "start": "node index.js",
-    "dev": "nodemon index.js"
+    "dev": "nodemon index.js",
+    "seed:stores": "node scripts/seed-mock-stores.js",
+    "seed:stock": "node scripts/seed-store-stock.js",
+    "seed:demo": "node scripts/seed-demo-accounts.js"
   },
   "author": "",
   "license": "ISC",
@@ -16,9 +19,12 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "google-auth-library": "^11.3.1",
     "jsonwebtoken": "^9.0.2",
     "mongodb": "^7.3.0",
     "mongoose": "^8.11.0",
-    "nodemon": "^3.1.9"
+    "nodemon": "^3.1.9",
+    "socket.io": "^4.8.4",
+    "stripe": "^23.0.1"
   }
 }

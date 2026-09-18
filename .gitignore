@@ -12,6 +12,8 @@ frontend/dist/
 .env*.local
 *.env
 backend/.env
+config.json
+backend/config.json
 
 # Python virtual environment
 .venv/
