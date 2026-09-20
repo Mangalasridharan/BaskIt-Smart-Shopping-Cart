@@ -12,14 +12,19 @@
     "deploy": "gh-pages -d dist"
   },
   "dependencies": {
+    "@react-oauth/google": "^0.13.5",
+    "@zxing/browser": "^0.2.1",
+    "@zxing/library": "^0.23.0",
     "axios": "^1.8.1",
+    "dynamsoft-barcode-reader-bundle": "^11.6.3200",
+    "dynamsoft-javascript-barcode": "^9.6.42",
     "gh-pages": "^6.3.0",
-    "moment": "^2.30.1",
+    "qrcode.react": "^4.2.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-icons": "^5.5.0",
-    "react-modal": "^3.16.3",
-    "react-router-dom": "^7.2.0"
+    "react-router-dom": "^7.2.0",
+    "socket.io-client": "^4.8.4"
   },
   "devDependencies": {
     "@eslint/js": "^9.19.0",

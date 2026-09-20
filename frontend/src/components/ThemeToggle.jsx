@@ -1,4 +1,3 @@
-import React from "react";
 import { HiOutlineSun, HiOutlineMoon } from "react-icons/hi";
 import { useTheme } from "../context/ThemeContext";
 
@@ -10,20 +9,30 @@ const ThemeToggle = ({ className = "" }) => {
       type="button"
       onClick={toggleTheme}
       aria-label="Toggle Light / Dark Mode"
+      aria-pressed={isDark}
       title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
-      className={`relative inline-flex items-center justify-center p-2 rounded-xl transition-all duration-300 active:scale-95 ${
-        isDark
-          ? "bg-slate-800 text-amber-300 hover:bg-slate-700 border border-slate-700 shadow-inner"
-          : "bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200 shadow-sm"
-      } ${className}`}
+      className={`relative inline-flex h-10 w-[78px] shrink-0 items-center rounded-full border border-cream-300 bg-cream-100 p-1 shadow-inner transition-colors duration-300 dark:border-white/10 dark:bg-slate-900/80 ${className}`}
     >
-      <div className="relative w-5 h-5 flex items-center justify-center">
-        {isDark ? (
-          <HiOutlineSun className="w-5 h-5 transition-transform duration-300 rotate-0 hover:rotate-45" />
-        ) : (
-          <HiOutlineMoon className="w-5 h-5 transition-transform duration-300 rotate-0 hover:-rotate-12" />
-        )}
+      {/* Background track icons anchored at the far ends */}
+      <div className="pointer-events-none absolute inset-0 flex items-center justify-between px-2.5">
+        <HiOutlineSun className="h-4 w-4 text-amber-500/80 dark:text-slate-600" />
+        <HiOutlineMoon className="h-4 w-4 text-slate-400 dark:text-citrus-300/80" />
       </div>
+
+      {/* Sliding knob */}
+      <span
+        className={`relative z-10 flex h-8 w-8 items-center justify-center rounded-full shadow-md transition-all duration-300 ${
+          isDark
+            ? "translate-x-[38px] bg-gradient-to-tr from-brand-600 to-citrus-400 text-slate-950 shadow-citrus"
+            : "translate-x-0 bg-white text-amber-500 shadow-soft"
+        }`}
+      >
+        {isDark ? (
+          <HiOutlineMoon className="h-4 w-4 text-slate-950" />
+        ) : (
+          <HiOutlineSun className="h-4 w-4 text-amber-500" />
+        )}
+      </span>
     </button>
   );
 };
