@@ -1,169 +1,432 @@
-import React, { useState } from 'react';
-import PasswordInput from '../../components/Input/PasswordInput';
+import { useState } from "react";
+import PasswordInput from "../../components/Input/PasswordInput";
 import { Link, useNavigate } from "react-router-dom";
+import { GoogleLogin } from "@react-oauth/google";
 import { validateEmail } from "../../utils/helper";
-import axiosInstance from '../../utils/axiosInstance';
-import { HiChevronLeft } from "react-icons/hi";
-import { FcGoogle } from "react-icons/fc";
-import { FaApple } from "react-icons/fa";
+import { useAuth } from "../../context/AuthContext";
+import { getRoleHome, MIN_PASSWORD_LENGTH, ROLES } from "../../utils/constants";
+import ThemeToggle from "../../components/ThemeToggle";
+import {
+  HiChevronLeft,
+  HiOutlineShoppingCart,
+  HiOutlineAdjustments,
+  HiOutlineSparkles,
+  HiOutlineShieldCheck,
+  HiOutlineQrcode,
+} from "react-icons/hi";
+
+const ROLE_OPTIONS = [
+  {
+    value: ROLES.CUSTOMER,
+    title: "Customer",
+    description: "Shop with a smart cart and pay without queueing.",
+    icon: HiOutlineShoppingCart,
+  },
+  {
+    value: ROLES.SHOPKEEPER,
+    title: "Shopkeeper",
+    description: "Manage the catalogue, stock levels and pricing.",
+    icon: HiOutlineAdjustments,
+  },
+];
 
 const SignUp = () => {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [role, setRole] = useState(ROLES.CUSTOMER);
+  const [storeName, setStoreName] = useState("");
+  const [numberOfCarts, setNumberOfCarts] = useState(5);
+  const [numberOfGates, setNumberOfGates] = useState(1);
+  const [error, setError] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const [name,setName] = useState("");
-    const [email,setEmail] = useState("");
-    const [password,setPassword] = useState("");
-    const [error,setError] = useState(null);
+  const navigate = useNavigate();
+  const { register, loginWithGoogle } = useAuth();
 
-    const navigate = useNavigate();
+  const handleGoogleSuccess = async (credentialResponse) => {
+    if (role === ROLES.SHOPKEEPER && !storeName.trim()) {
+      setError("Please enter your supermarket name before signing up with Google.");
+      return;
+    }
 
-    const handleSignUp = async (e) => {
-        e.preventDefault();
+    setError("");
+    setIsSubmitting(true);
+    try {
+      const user = await loginWithGoogle({
+        idToken: credentialResponse.credential,
+        role,
+        store: role === ROLES.SHOPKEEPER ? {
+          name: storeName.trim(),
+          numberOfCarts: Number(numberOfCarts) || 5,
+          numberOfGates: Number(numberOfGates) || 1,
+        } : null,
+      });
+      navigate(getRoleHome(user.role), { replace: true });
+    } catch (err) {
+      const message =
+        err.response?.data?.message ||
+        err.message ||
+        "Google sign-up failed. Please try again.";
+      setError(message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
-        if(!name) {
-            setError("Please enter your name");
-            return;
-        }
+  const handleGoogleError = () => {
+    setError("Google sign-up was cancelled or failed. Please try again.");
+  };
 
-        if (!validateEmail(email)) {
-            setError("Please enter a valid email address.");
-            return;
-        }
+  const handleSignUp = async (e) => {
+    e.preventDefault();
 
-        if (!password) {
-            setError("Please enter the password");
-            return;
-        }
+    if (!name.trim() || name.trim().length < 2) {
+      setError("Please enter your full name");
+      return;
+    }
 
-        setError('');
+    if (!validateEmail(email)) {
+      setError("Please enter a valid email address.");
+      return;
+    }
 
-        try {
-            const response = await axiosInstance.post("/customer/register",{
-                fullName: name,
-                email:email,
-                password:password, 
-            });
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      setError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters long`);
+      return;
+    }
 
-            if(response.data && response.data.error){
-                setError(response.data.message)
-                return
-            }
-            if(response.data && response.data.accessToken){
-                localStorage.setItem("token", response.data.accessToken)
-                navigate('/dashboard')
-            }
-        }
-        catch (error) {
-            if(error.response && error.response.data && error.response.data.message){
-                setError(error.response.data.message);
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
 
-            }else{
-                setError("An unexpected error occurred. Please try again!");
-            }
-        }
-    };
+    if (role === ROLES.SHOPKEEPER) {
+      if (!storeName.trim()) {
+        setError("Supermarket name is required for shopkeeper registration");
+        return;
+      }
+      if (Number(numberOfCarts) < 1) {
+        setError("Number of carts must be at least 1");
+        return;
+      }
+      if (Number(numberOfGates) < 1) {
+        setError("Number of gates must be at least 1");
+        return;
+      }
+    }
 
-    return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-[#F4FAF5] via-[#E8F3E9] to-[#F4FAF5] flex items-center justify-center p-4 relative overflow-hidden font-sans">
-        {/* Soft decorative background glows */}
-        <div className="absolute top-[-10%] right-[-10%] w-[40rem] h-[40rem] bg-[#E2EFE5]/40 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-[-10%] left-[-10%] w-[45rem] h-[45rem] bg-[#137A24]/5 rounded-full blur-3xl"></div>
-        
-        <div className="relative w-full max-w-md bg-white rounded-[32px] shadow-xl border border-slate-100 p-8 md:p-10 animate-fade-in-up">
-            <div className="flex items-center mb-6">
-                <button 
-                    type="button"
-                    onClick={() => navigate(-1)} 
-                    className="w-11 h-11 bg-[#F0F6F1] hover:bg-[#E2EBE3] text-slate-700 flex items-center justify-center rounded-full transition-all duration-200 active:scale-95 shadow-sm"
-                >
-                    <HiChevronLeft className="text-xl" />
-                </button>
-            </div>
+    setError("");
+    setIsSubmitting(true);
 
-            <div className="mb-8">
-                <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Sign Up</h1>
-                <p className="text-slate-500 mt-3 text-sm leading-relaxed font-medium">
-                    The shopping app's sign-up is quick with basic fields.
-                </p>
-            </div>
+    try {
+      const user = await register({
+        fullName: name.trim(),
+        email: email.trim().toLowerCase(),
+        password,
+        role,
+        store: role === ROLES.SHOPKEEPER ? {
+          name: storeName.trim(),
+          numberOfCarts: Number(numberOfCarts) || 5,
+          numberOfGates: Number(numberOfGates) || 1,
+        } : null,
+      });
+      navigate(getRoleHome(user.role), { replace: true });
+    } catch (err) {
+      const message =
+        err.response?.data?.message ||
+        err.message ||
+        "An unexpected error occurred. Please try again!";
+      setError(message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
-            <form onSubmit={handleSignUp} className="space-y-5">
-                <div>
-                    <label className="text-slate-700 text-xs font-bold mb-2 block tracking-wide uppercase">Full Name</label>
-                    <input 
-                        type="text" 
-                        placeholder="Enter Full Name" 
-                        className="w-full bg-[#F0F6F1] text-slate-800 placeholder-slate-400 font-medium text-sm px-5 py-4 rounded-2xl border-none outline-none focus:ring-2 focus:ring-[#137A24]/20 transition-all duration-200"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                    />
-                </div>
+  return (
+    <div className="grid min-h-screen bg-cream-100 font-sans dark:bg-[#090D16] lg:grid-cols-2">
+      {/* Editorial panel */}
+      <aside className="noise relative hidden overflow-hidden bg-slate-900 p-10 text-white lg:flex lg:flex-col lg:justify-between xl:p-14 dark:bg-[#090D16] border-r border-slate-800/80">
+        <div className="pointer-events-none absolute -left-20 top-16 h-72 w-72 rounded-full border-[30px] border-brand-500/15" />
+        <div className="pointer-events-none absolute -bottom-24 -right-10 h-80 w-80 rounded-full bg-citrus-400/15 blur-3xl" />
 
-                <div>
-                    <label className="text-slate-700 text-xs font-bold mb-2 block tracking-wide uppercase">Email Address</label>
-                    <input 
-                        type="text" 
-                        placeholder="Email Here" 
-                        className="w-full bg-[#F0F6F1] text-slate-800 placeholder-slate-400 font-medium text-sm px-5 py-4 rounded-2xl border-none outline-none focus:ring-2 focus:ring-[#137A24]/20 transition-all duration-200"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                    />
-                </div>
+        <Link to="/" className="relative flex items-center gap-3">
+          <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-tr from-brand-600 to-citrus-400 text-white shadow-citrus">
+            <HiOutlineShoppingCart className="text-lg" />
+          </span>
+          <span className="font-display text-xl font-bold tracking-tight">
+            Bask<span className="bg-gradient-to-r from-brand-400 to-citrus-400 bg-clip-text text-transparent">It</span>
+          </span>
+        </Link>
 
-                <div>
-                    <label className="text-slate-700 text-xs font-bold mb-2 block tracking-wide uppercase">Password</label>
-                    <PasswordInput 
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)} 
-                        placeholder="Enter Password"
-                    />
-                </div>
+        <div className="relative max-w-md">
+          <span className="inline-flex items-center gap-2 rounded-full border border-citrus-400/30 bg-citrus-400/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-citrus-300">
+            <HiOutlineSparkles className="text-sm" />
+            Create your account
+          </span>
+          <h2 className="mt-6 font-display text-4xl font-bold leading-[1.08] xl:text-5xl">
+            One account.
+            <br />
+            Both sides of the store.
+          </h2>
+          <p className="mt-5 max-w-sm text-sm leading-relaxed text-slate-300">
+            Shop the smart way or run the catalogue. Your role decides where you land
+            — everything else works the same.
+          </p>
 
-                {error && (
-                    <div className="bg-red-50 border border-red-100 rounded-2xl px-4 py-3">
-                        <p className="text-red-600 text-sm font-medium">{error}</p>
-                    </div>
-                )}
-
-                <button 
-                    type="submit" 
-                    className="w-full bg-[#137A24] hover:bg-[#0E621C] text-white font-bold py-4 rounded-2xl active:scale-[0.98] transition-all duration-200 shadow-lg shadow-green-900/10 text-sm mt-4 tracking-wide"
-                >
-                    Create Account
-                </button>
-
-                <div className="flex items-center py-2">
-                    <div className="flex-1 h-[1px] bg-slate-100"></div>
-                    <span className="text-[10px] text-slate-400 font-bold px-4 tracking-widest">OR</span>
-                    <div className="flex-1 h-[1px] bg-slate-100"></div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                    <button 
-                        type="button" 
-                        className="flex items-center justify-center gap-2 bg-[#F0F6F1] hover:bg-[#E2EBE3] text-slate-800 font-bold py-3.5 px-4 rounded-2xl transition-all duration-200 text-xs border border-transparent active:scale-[0.97]"
-                    >
-                        <FcGoogle className="text-lg shrink-0" />
-                        Google
-                    </button>
-                    <button 
-                        type="button" 
-                        className="flex items-center justify-center gap-2 bg-[#F0F6F1] hover:bg-[#E2EBE3] text-slate-800 font-bold py-3.5 px-4 rounded-2xl transition-all duration-200 text-xs border border-transparent active:scale-[0.97]"
-                    >
-                        <FaApple className="text-lg shrink-0 text-slate-900" />
-                        Apple
-                    </button>
-                </div>
-
-                <p className="text-slate-500 text-xs text-center font-semibold pt-4">
-                    Already have an account?{" "}
-                    <Link to="/login" className="text-[#137A24] font-bold hover:underline transition-all ml-1">
-                        Sign In
-                    </Link>
-                </p>
-            </form>
+          <div className="mt-10 space-y-4">
+            {[
+              [HiOutlineQrcode, "Scan store and cart to start"],
+              [HiOutlineShieldCheck, "Payments verified with Stripe"],
+              [HiOutlineAdjustments, "Shopkeepers get stock control"],
+            ].map(([Icon, label]) => (
+              <div key={label} className="flex items-center gap-3 text-sm text-slate-300">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-citrus-300">
+                  <Icon className="text-base" />
+                </span>
+                {label}
+              </div>
+            ))}
+          </div>
         </div>
+
+        <p className="relative text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+          No queues · No cashier · No paper bill
+        </p>
+      </aside>
+
+      {/* Form panel */}
+      <main className="relative flex items-center justify-center px-4 py-12 sm:px-8">
+        <div className="absolute right-5 top-5">
+          <ThemeToggle />
+        </div>
+
+        <div className="w-full max-w-md animate-fade-in-up">
+          <div className="mb-8 flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => navigate("/")}
+              className="btn-icon"
+              aria-label="Back to landing"
+            >
+              <HiChevronLeft className="text-xl" />
+            </button>
+
+            <Link
+              to="/"
+              className="flex items-center gap-2 font-display text-lg font-bold lg:hidden"
+            >
+              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-500 text-white shadow-indigo">
+                <HiOutlineShoppingCart className="text-sm" />
+              </span>
+              Bask<span className="-ml-1.5 text-brand-600 dark:text-citrus-400">It</span>
+            </Link>
+          </div>
+
+          <span className="eyebrow">Get started</span>
+          <h1 className="mt-3 font-display text-3xl font-bold tracking-tight text-ink dark:text-white sm:text-4xl">
+            Create your account
+          </h1>
+          <p className="mt-3 text-sm leading-relaxed text-ink/55 dark:text-slate-400">
+            Choose how you&apos;ll use BaskIt, then sign in with your email and
+            password.
+          </p>
+
+          <form onSubmit={handleSignUp} className="mt-8 space-y-5">
+            <div>
+              <span className="input-label">I am a</span>
+              <div className="grid grid-cols-2 gap-3">
+                {ROLE_OPTIONS.map((option) => {
+                  const Icon = option.icon;
+                  const isSelected = role === option.value;
+
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setRole(option.value)}
+                      aria-pressed={isSelected}
+                      className={`rounded-2xl border px-4 py-3.5 text-left transition-all duration-200 ${
+                        isSelected
+                          ? "border-brand-600 bg-brand-50 text-brand-700 shadow-indigo dark:border-brand-400 dark:bg-brand-500/20 dark:text-brand-300"
+                          : "border-cream-300 bg-white hover:border-brand-500/30 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200"
+                      }`}
+                    >
+                      <span className="flex items-center gap-2 text-sm font-semibold">
+                        <Icon className="shrink-0 text-base" />
+                        {option.title}
+                      </span>
+                      <span
+                        className={`mt-1 block text-[11px] leading-snug ${
+                          isSelected ? "text-brand-700/80 dark:text-brand-200/80" : "text-ink/45 dark:text-slate-400"
+                        }`}
+                      >
+                        {option.description}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div>
+              <label className="input-label" htmlFor="signup-name">
+                Full name
+              </label>
+              <input
+                id="signup-name"
+                type="text"
+                placeholder="Enter full name"
+                autoComplete="name"
+                className="field"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className="input-label" htmlFor="signup-email">
+                Email address
+              </label>
+              <input
+                id="signup-email"
+                type="email"
+                placeholder="you@example.com"
+                autoComplete="email"
+                className="field"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <span className="input-label">Password</span>
+              <PasswordInput
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
+              />
+            </div>
+
+            <div>
+              <span className="input-label">Confirm password</span>
+              <PasswordInput
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Re-enter password"
+              />
+            </div>
+
+            {/* Shopkeeper-specific store configuration */}
+            {role === ROLES.SHOPKEEPER && (
+              <div className="space-y-4 rounded-2xl border border-brand-500/20 bg-brand-500/5 p-4 dark:border-citrus-400/20 dark:bg-citrus-400/5">
+                <div className="flex items-center gap-2 border-b border-brand-500/10 pb-2 dark:border-citrus-400/10">
+                  <HiOutlineQrcode className="text-base text-brand-600 dark:text-citrus-400" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-brand-900 dark:text-cream-100">
+                    Supermarket Setup
+                  </span>
+                </div>
+
+                <div>
+                  <label className="input-label" htmlFor="signup-store-name">
+                    Supermarket name
+                  </label>
+                  <input
+                    id="signup-store-name"
+                    type="text"
+                    required
+                    placeholder="e.g. FreshMart Hypermarket"
+                    className="field"
+                    value={storeName}
+                    onChange={(e) => setStoreName(e.target.value)}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="input-label" htmlFor="signup-store-carts">
+                      Number of carts
+                    </label>
+                    <input
+                      id="signup-store-carts"
+                      type="number"
+                      min="1"
+                      max="100"
+                      required
+                      className="field"
+                      value={numberOfCarts}
+                      onChange={(e) => setNumberOfCarts(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="input-label" htmlFor="signup-store-gates">
+                      Number of gates
+                    </label>
+                    <input
+                      id="signup-store-gates"
+                      type="number"
+                      min="1"
+                      max="20"
+                      required
+                      className="field"
+                      value={numberOfGates}
+                      onChange={(e) => setNumberOfGates(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {error && (
+              <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 dark:border-rose-900/50 dark:bg-rose-950/40">
+                <p className="text-sm font-medium text-rose-600 dark:text-rose-400">{error}</p>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="btn-primary mt-2 w-full py-3.5 text-sm font-bold shadow-indigo"
+            >
+              {isSubmitting ? "Creating account…" : "Create account"}
+            </button>
+
+            <div className="flex items-center py-1">
+              <div className="h-px flex-1 bg-cream-300 dark:bg-white/10" />
+              <span className="px-4 text-[9px] font-bold uppercase tracking-[0.2em] text-ink/35 dark:text-slate-400">
+                or continue with
+              </span>
+              <div className="h-px flex-1 bg-cream-300 dark:bg-white/10" />
+            </div>
+
+            <div className="flex justify-center pt-1">
+              <GoogleLogin
+                onSuccess={handleGoogleSuccess}
+                onError={handleGoogleError}
+                shape="pill"
+                size="large"
+                text="signup_with"
+                theme="outline"
+                width="100%"
+              />
+            </div>
+
+            <p className="pb-4 pt-2 text-center text-xs font-medium text-ink/50 dark:text-slate-400">
+              Already have an account?{" "}
+              <Link
+                to="/login"
+                className="font-bold text-brand-600 underline-offset-4 hover:underline dark:text-citrus-400"
+              >
+                Sign in
+              </Link>
+            </p>
+          </form>
+        </div>
+      </main>
     </div>
-    );
+  );
 };
 
 export default SignUp;
